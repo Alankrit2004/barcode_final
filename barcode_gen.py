@@ -42,36 +42,40 @@ def calculate_gtin13(gtin12):
     check_digit = (10 - ((odd_sum + even_sum) % 10)) % 10
     return gtin12 + str(check_digit)
 
-def upload_to_supabase(image_path, gtin):
-    """Uploads barcode image to Supabase Storage and returns the public URL."""
-    try:
-        with open(image_path, "rb") as f:
-            supabase.storage.from_(SUPABASE_BUCKET).upload(
-                f"{gtin}.png", f, {"content-type": "image/png"}
-            )
-
-        # Generate public URL
-        public_url = f"{SUPABASE_URL}/storage/v1/object/public/{SUPABASE_BUCKET}/{gtin}.png"
-        return public_url
-    except Exception as e:
-        print(f"Error uploading to Supabase: {e}")
-        return None
-
 def generate_gs1_barcode(gtin):
-    """Generates GS1 barcode and saves it temporarily."""
+    """Generates GS1 barcode and saves it to the static directory."""
     try:
-        # Ensure temporary directory exists
-        temp_dir = "/tmp"
-        os.makedirs(temp_dir, exist_ok=True)
+        os.makedirs("static", exist_ok=True)  # Ensure directory exists
 
         ean = barcode.get_barcode_class('ean13')
         barcode_instance = ean(gtin, writer=ImageWriter())
-        barcode_path = f"{temp_dir}/{gtin}.png"
-        barcode_instance.save(barcode_path)  # Saves in temp folder
+        barcode_path = f"static/{gtin}.png"
+        barcode_instance.save(barcode_path)  # Saves in static folder
+
+        if not os.path.exists(barcode_path):
+            raise FileNotFoundError(f"Barcode image not created at {barcode_path}")
 
         return barcode_path  # Return correct path
     except Exception as e:
         print(f"Error generating barcode: {e}")
+        return None
+
+def upload_to_supabase(image_path, gtin):
+    """Uploads barcode image to Supabase Storage and returns the public URL."""
+    try:
+        if not os.path.exists(image_path):
+            raise FileNotFoundError(f"File not found: {image_path}")
+
+        with open(image_path, "rb") as f:
+            response = supabase.storage.from_(SUPABASE_BUCKET).upload(
+                f"static/{gtin}.png", f, {"content-type": "image/png"}
+            )
+
+        # Generate public URL
+        public_url = f"{SUPABASE_URL}/storage/v1/object/public/{SUPABASE_BUCKET}/static/{gtin}.png"
+        return public_url
+    except Exception as e:
+        print(f"Error uploading to Supabase: {e}")
         return None
 
 def store_product_in_db(name, price, gtin, barcode_url):
@@ -93,40 +97,41 @@ def store_product_in_db(name, price, gtin, barcode_url):
 
 @app.route('/generate_barcode', methods=['POST'])
 def generate_barcode():
-    """API endpoint to generate a barcode, upload to Supabase, and store product details."""
+    """API endpoint to generate a barcode and store product details."""
     data = request.json
     name = data.get("name")
     price = data.get("price")
     gtin_input = data.get("gtin")
 
-    if not name or not price or not gtin_input:
+    if not name or not price:
         return jsonify({"error": "Missing required fields"}), 400
 
-    try:
-        gtin = calculate_gtin13(gtin_input[:12])
-    except ValueError as e:
-        return jsonify({"error": str(e)}), 400
+    if gtin_input:
+        try:
+            gtin = calculate_gtin13(gtin_input[:12])
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 400
+    else:
+        return jsonify({"error": "GTIN required"}), 400
 
-    # Generate barcode image
-    barcode_image_path = generate_gs1_barcode(gtin)
-
-    if not barcode_image_path:
+    # Generate barcode
+    barcode_path = generate_gs1_barcode(gtin)
+    if not barcode_path:
         return jsonify({"error": "Failed to generate barcode"}), 500
 
-    # Upload to Supabase
-    supabase_url = upload_to_supabase(barcode_image_path, gtin)
-    
-    if not supabase_url:
-        return jsonify({"error": "Failed to upload to Supabase"}), 500
+    # Upload barcode to Supabase
+    barcode_url = upload_to_supabase(barcode_path, gtin)
+    if not barcode_url:
+        return jsonify({"error": "Failed to upload barcode"}), 500
 
-    # Store product in DB with Supabase URL
-    if not store_product_in_db(name, price, gtin, supabase_url):
+    # Store in DB
+    if not store_product_in_db(name, price, gtin, barcode_url):
         return jsonify({"error": "Database error"}), 500
 
     return jsonify({
-        "message": "Barcode generated, uploaded to Supabase, and product stored successfully",
+        "message": "Barcode generated and product stored successfully",
         "gtin": gtin,
-        "barcode_image_url": supabase_url  # Return public Supabase URL instead of local path
+        "barcode_image_path": barcode_url
     }), 201
 
 @app.route('/scan_barcode', methods=['POST'])
@@ -152,7 +157,7 @@ def scan_barcode():
         return jsonify({
             "name": product[0],
             "price": product[1],
-            "barcode_image_url": product[2]  # This is now a Supabase URL
+            "barcode_image_path": product[2]
         }), 200
 
     except Exception as e:
