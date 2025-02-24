@@ -53,8 +53,9 @@ def generate_gs1_barcode(gtin):
         ean = barcode.get_barcode_class('ean13')
         barcode_instance = ean(gtin, writer=ImageWriter())
 
-        barcode_path = f"static/{gtin}"
-        full_path = barcode_instance.save(barcode_path)  # Saves as PNG by default
+        barcode_path = f"/tmp/{gtin}"
+        full_path = barcode_instance.save(barcode_path)  # Saves to "/tmp/"
+# Saves as PNG by default
 
         if not os.path.exists(full_path + ".png"):  # Check if file was created
             raise FileNotFoundError(f"Barcode image not created at {full_path}.png")
