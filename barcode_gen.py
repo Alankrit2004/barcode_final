@@ -6,23 +6,26 @@ import barcode
 from barcode.writer import ImageWriter
 from flask import Flask, request, jsonify
 from supabase import create_client
+from dotenv import load_dotenv
+
+load_dotenv()  # Load environment variables from .env file
 
 app = Flask(__name__)
 
 # Supabase Database Connection Pool
 DB_CONFIG = {
-    "dbname": "postgres",
-    "user": "postgres.kpwsabrvzergvzpgilhy",
-    "password": "wMzRwtVTHNGMa4VS",
-    "host": "aws-0-ap-southeast-1.pooler.supabase.com",
-    "port": "6543"
+    "dbname": os.getenv("DB_NAME"),
+    "user": os.getenv("DB_USER"),
+    "password": os.getenv("DB_PASSWORD"),
+    "host": os.getenv("DB_HOST"),
+    "port": os.getenv("DB_PORT")
 }
 db_pool = pool.SimpleConnectionPool(1, 10, **DB_CONFIG)
 
 # Supabase Configuration
-SUPABASE_URL = "https://kpwsabrvzergvzpgilhy.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtwd3NhYnJ2emVyZ3Z6cGdpbGh5Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTczOTk1NzQ5MiwiZXhwIjoyMDU1NTMzNDkyfQ._xjWb2jXd52DdloZDAEv79cPDrbsB3eX1Byp7ueJvh0"
-SUPABASE_BUCKET = "barcode_images"
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+SUPABASE_BUCKET = os.getenv("SUPABASE_BUCKET")
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
