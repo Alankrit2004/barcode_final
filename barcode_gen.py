@@ -46,11 +46,11 @@ def upload_to_supabase(image_path, gtin):
     """Uploads barcode image to Supabase Storage and returns the public URL."""
     try:
         with open(image_path, "rb") as f:
-            response = supabase.storage.from_(SUPABASE_BUCKET).upload(
+            supabase.storage.from_(SUPABASE_BUCKET).upload(
                 f"static/{gtin}.png", f, {"content-type": "image/png"}
             )
 
-        # Get the public URL
+        # Generate public URL
         public_url = f"{SUPABASE_URL}/storage/v1/object/public/{SUPABASE_BUCKET}/static/{gtin}.png"
         return public_url
     except Exception as e:
@@ -59,25 +59,21 @@ def upload_to_supabase(image_path, gtin):
 
 
 def generate_gs1_barcode(gtin):
-    """Generates GS1 barcode, uploads it to Supabase, and returns the URL."""
+    """Generates GS1 barcode and saves it to the static directory."""
     try:
+        # Ensure static directory exists
+        os.makedirs("static", exist_ok=True)
+
         ean = barcode.get_barcode_class('ean13')
         barcode_instance = ean(gtin, writer=ImageWriter())
+        barcode_path = f"static/{gtin}.png"
+        barcode_instance.save(barcode_path)  # Saves in static folder
 
-        # Save barcode temporarily
-        temp_path = f"/tmp/{gtin}.png"
-        barcode_instance.save(temp_path)
-
-        # Upload to Supabase
-        public_url = upload_to_supabase(temp_path, gtin)
-
-        # Delete temporary file
-        os.remove(temp_path)
-
-        return public_url
+        return barcode_path  # Return correct path
     except Exception as e:
         print(f"Error generating barcode: {e}")
         return None
+
 
 def store_product_in_db(name, price, gtin, barcode_url):
     """Stores product details in the database."""
