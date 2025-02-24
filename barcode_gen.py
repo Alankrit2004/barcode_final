@@ -21,7 +21,7 @@ db_pool = pool.SimpleConnectionPool(1, 10, **DB_CONFIG)
 
 # Supabase Configuration
 SUPABASE_URL = "https://kpwsabrvzergvzpgilhy.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtwd3NhYnJ2emVyZ3Z6cGdpbGh5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzk5NTc0OTIsImV4cCI6MjA1NTUzMzQ5Mn0.9BH4btGMf3GzS_1gw2DXyzlAlBlnRGARJCQC1blV5W0"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtwd3NhYnJ2emVyZ3Z6cGdpbGh5Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTczOTk1NzQ5MiwiZXhwIjoyMDU1NTMzNDkyfQ._xjWb2jXd52DdloZDAEv79cPDrbsB3eX1Byp7ueJvh0"
 SUPABASE_BUCKET = "barcode_images"
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
@@ -49,16 +49,18 @@ def generate_gs1_barcode(gtin):
 
         ean = barcode.get_barcode_class('ean13')
         barcode_instance = ean(gtin, writer=ImageWriter())
-        barcode_path = f"static/{gtin}.png"
-        barcode_instance.save(barcode_path)  # Saves in static folder
 
-        if not os.path.exists(barcode_path):
-            raise FileNotFoundError(f"Barcode image not created at {barcode_path}")
+        barcode_path = f"static/{gtin}"
+        full_path = barcode_instance.save(barcode_path)  # Saves as PNG by default
 
-        return barcode_path  # Return correct path
+        if not os.path.exists(full_path + ".png"):  # Check if file was created
+            raise FileNotFoundError(f"Barcode image not created at {full_path}.png")
+
+        return full_path + ".png"  # Return correct path
     except Exception as e:
         print(f"Error generating barcode: {e}")
         return None
+
 
 def upload_to_supabase(image_path, gtin):
     """Uploads barcode image to Supabase Storage and returns the public URL."""
