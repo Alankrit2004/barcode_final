@@ -2,3 +2,4 @@ flask
 pillow
 psycopg2
 python-barcode
+gunicorn

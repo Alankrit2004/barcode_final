@@ -1,3 +1,4 @@
 #!/bin/bash
 
-python -m uvicorn barcode_gen:app --host 0.0.0.0 --port 8000
+/opt/render/project/src/.venv/bin/gunicorn -w 4 -b 0.0.0.0:8000 barcode_gen:app
+
