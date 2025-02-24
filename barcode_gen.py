@@ -20,9 +20,9 @@ DB_CONFIG = {
 db_pool = pool.SimpleConnectionPool(1, 10, **DB_CONFIG)
 
 # Supabase Configuration
-SUPABASE_URL = "https://your-project-url.supabase.co"
-SUPABASE_KEY = "your-service-role-key"
-SUPABASE_BUCKET = "barcodes"
+SUPABASE_URL = "https://kpwsabrvzergvzpgilhy.supabase.co"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtwd3NhYnJ2emVyZ3Z6cGdpbGh5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzk5NTc0OTIsImV4cCI6MjA1NTUzMzQ5Mn0.9BH4btGMf3GzS_1gw2DXyzlAlBlnRGARJCQC1blV5W0"
+SUPABASE_BUCKET = "barcode_images"
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
@@ -46,18 +46,17 @@ def upload_to_supabase(image_path, gtin):
     """Uploads barcode image to Supabase Storage and returns the public URL."""
     try:
         with open(image_path, "rb") as f:
-            image_data = f.read()
-
-        response = supabase.storage.from_(SUPABASE_BUCKET).upload(
-            f"{gtin}.png", image_data, file_options={"content-type": "image/png"}
-        )
+            response = supabase.storage.from_(SUPABASE_BUCKET).upload(
+                f"static/{gtin}.png", f, {"content-type": "image/png"}
+            )
 
         # Get the public URL
-        public_url = f"{SUPABASE_URL}/storage/v1/object/public/{SUPABASE_BUCKET}/{gtin}.png"
+        public_url = f"{SUPABASE_URL}/storage/v1/object/public/{SUPABASE_BUCKET}/static/{gtin}.png"
         return public_url
     except Exception as e:
         print(f"Error uploading to Supabase: {e}")
         return None
+
 
 def generate_gs1_barcode(gtin):
     """Generates GS1 barcode, uploads it to Supabase, and returns the URL."""
