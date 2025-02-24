@@ -46,24 +46,34 @@ def calculate_gtin13(gtin12):
     return gtin12 + str(check_digit)
 
 def generate_gs1_barcode(gtin):
-    """Generates GS1 barcode and saves it to the static directory."""
+    """Generates GS1 barcode and saves it to the /tmp directory."""
     try:
-        os.makedirs("static", exist_ok=True)  # Ensure directory exists
-
+        barcode_path = f"/tmp/{gtin}"  # No .png extension here
         ean = barcode.get_barcode_class('ean13')
         barcode_instance = ean(gtin, writer=ImageWriter())
 
-        barcode_path = f"/tmp/{gtin}"
-        full_path = barcode_instance.save(barcode_path)  # Saves to "/tmp/"
-# Saves as PNG by default
+        full_path = barcode_instance.save(barcode_path)  # Saves as PNG automatically
 
-        if not os.path.exists(full_path + ".png"):  # Check if file was created
-            raise FileNotFoundError(f"Barcode image not created at {full_path}.png")
+        if not os.path.exists(full_path):  # Only check for the file, not .png.png
+            raise FileNotFoundError(f"Barcode image not created at {full_path}")
 
-        return full_path + ".png"  # Return correct path
+        return full_path  # Return correct path
     except Exception as e:
         print(f"Error generating barcode: {e}")
         return None
+
+
+@app.route('/test_tmp', methods=['GET'])
+def test_tmp():
+    """Test if Render allows writing to /tmp/"""
+    try:
+        test_path = "/tmp/test_file.txt"
+        with open(test_path, "w") as f:
+            f.write("Testing /tmp/ on Render")
+
+        return jsonify({"message": "Success", "test_file_path": test_path}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 def upload_to_supabase(image_path, gtin):
