@@ -5,6 +5,7 @@ from psycopg2 import pool
 import barcode
 from barcode.writer import ImageWriter
 from flask import Flask, request, jsonify
+from supabase import create_client
 
 app = Flask(__name__)
 
@@ -18,8 +19,12 @@ DB_CONFIG = {
 }
 db_pool = pool.SimpleConnectionPool(1, 10, **DB_CONFIG)
 
-# Ensure 'static' directory exists
-os.makedirs("static", exist_ok=True)
+# Supabase Configuration
+SUPABASE_URL = "https://your-project-url.supabase.co"
+SUPABASE_KEY = "your-service-role-key"
+SUPABASE_BUCKET = "barcodes"
+
+supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 def get_db_connection():
     return db_pool.getconn()
@@ -37,28 +42,52 @@ def calculate_gtin13(gtin12):
     check_digit = (10 - ((odd_sum + even_sum) % 10)) % 10
     return gtin12 + str(check_digit)
 
+def upload_to_supabase(image_path, gtin):
+    """Uploads barcode image to Supabase Storage and returns the public URL."""
+    try:
+        with open(image_path, "rb") as f:
+            image_data = f.read()
+
+        response = supabase.storage.from_(SUPABASE_BUCKET).upload(
+            f"{gtin}.png", image_data, file_options={"content-type": "image/png"}
+        )
+
+        # Get the public URL
+        public_url = f"{SUPABASE_URL}/storage/v1/object/public/{SUPABASE_BUCKET}/{gtin}.png"
+        return public_url
+    except Exception as e:
+        print(f"Error uploading to Supabase: {e}")
+        return None
+
 def generate_gs1_barcode(gtin):
-    """Generates GS1 barcode asynchronously."""
-    def worker():
-        try:
-            ean = barcode.get_barcode_class('ean13')
-            barcode_instance = ean(gtin, writer=ImageWriter())
-            barcode_instance.save(f"static/{gtin}.png")
-        except Exception as e:
-            print(f"Error generating barcode: {e}")
+    """Generates GS1 barcode, uploads it to Supabase, and returns the URL."""
+    try:
+        ean = barcode.get_barcode_class('ean13')
+        barcode_instance = ean(gtin, writer=ImageWriter())
 
-    thread = threading.Thread(target=worker)
-    thread.start()
-    return f"static/{gtin}.png"
+        # Save barcode temporarily
+        temp_path = f"/tmp/{gtin}.png"
+        barcode_instance.save(temp_path)
 
-def store_product_in_db(name, price, gtin, barcode_image_path):
+        # Upload to Supabase
+        public_url = upload_to_supabase(temp_path, gtin)
+
+        # Delete temporary file
+        os.remove(temp_path)
+
+        return public_url
+    except Exception as e:
+        print(f"Error generating barcode: {e}")
+        return None
+
+def store_product_in_db(name, price, gtin, barcode_url):
     """Stores product details in the database."""
     try:
         conn = get_db_connection()
         cur = conn.cursor()
         cur.execute(
             "INSERT INTO products (name, price, gtin, barcode_image_path) VALUES (%s, %s, %s, %s)",
-            (name, price, gtin, barcode_image_path)
+            (name, price, gtin, barcode_url)
         )
         conn.commit()
         cur.close()
@@ -87,15 +116,18 @@ def generate_barcode():
     else:
         return jsonify({"error": "GTIN required"}), 400
 
-    barcode_image_path = generate_gs1_barcode(gtin)
+    barcode_url = generate_gs1_barcode(gtin)
 
-    if not store_product_in_db(name, price, gtin, barcode_image_path):
+    if not barcode_url:
+        return jsonify({"error": "Failed to generate barcode"}), 500
+
+    if not store_product_in_db(name, price, gtin, barcode_url):
         return jsonify({"error": "Database error"}), 500
 
     return jsonify({
         "message": "Barcode generated and product stored successfully",
         "gtin": gtin,
-        "barcode_image_path": barcode_image_path
+        "barcode_image_path": barcode_url
     }), 201
 
 
@@ -122,13 +154,12 @@ def scan_barcode():
         return jsonify({
             "name": product[0],
             "price": product[1],
-            "barcode_image_path": product[2]
+            "barcode_image_path": product[2]  # This is now a Supabase URL
         }), 200
 
     except Exception as e:
         print(f"Database Error: {e}")
         return jsonify({"error": "Database error"}), 500
-
 
 
 if __name__ == '__main__':
