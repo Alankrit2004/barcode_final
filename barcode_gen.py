@@ -18,8 +18,10 @@ DB_CONFIG = {
     "user": os.getenv("DB_USER"),
     "password": os.getenv("DB_PASSWORD"),
     "host": os.getenv("DB_HOST"),
-    "port": os.getenv("DB_PORT")
+    "port": os.getenv("DB_PORT"),
+    "sslmode": "require"  # Enforce SSL connection
 }
+
 db_pool = pool.SimpleConnectionPool(1, 10, **DB_CONFIG)
 
 # Supabase Configuration
