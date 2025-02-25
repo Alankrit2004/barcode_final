@@ -171,6 +171,7 @@ def scan_barcode():
             return jsonify({"error": "Product not found"}), 404
 
         return jsonify({
+            "message": "Product found successfully",
             "name": product[0],
             "price": product[1],
             "barcode_image_path": product[2]
@@ -179,6 +180,7 @@ def scan_barcode():
     except Exception as e:
         print(f"Database Error: {e}")
         return jsonify({"error": "Database error"}), 500
+
 
 if __name__ == '__main__':
     app.run(port=5001, threaded=True)
