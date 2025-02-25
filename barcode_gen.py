@@ -120,35 +120,38 @@ def generate_barcode():
     gtin_input = data.get("gtin")
 
     if not name or not price:
-        return jsonify({"error": "Missing required fields"}), 400
+        return jsonify({"isSuccess": False, "message": "Missing required fields"}), 400
 
     if gtin_input:
         try:
             gtin = calculate_gtin13(gtin_input[:12])
         except ValueError as e:
-            return jsonify({"error": str(e)}), 400
+            return jsonify({"isSuccess": False, "message": str(e)}), 400  # Changed error handling
     else:
-        return jsonify({"error": "GTIN required"}), 400
+        return jsonify({"isSuccess": False, "message": "GTIN required"}), 400  # Changed error handling
 
     # Generate barcode
     barcode_path = generate_gs1_barcode(gtin)
     if not barcode_path:
-        return jsonify({"error": "Failed to generate barcode"}), 500
+        return jsonify({"isSuccess": False, "message": "Failed to generate barcode"}), 500  # Changed error handling
 
     # Upload barcode to Supabase
     barcode_url = upload_to_supabase(barcode_path, gtin)
     if not barcode_url:
-        return jsonify({"error": "Failed to upload barcode"}), 500
+        return jsonify({"isSuccess": False, "message": "Failed to upload barcode"}), 500  # Changed error handling
 
     # Store in DB
     if not store_product_in_db(name, price, gtin, barcode_url):
-        return jsonify({"error": "Database error"}), 500
+        return jsonify({"isSuccess": False, "message": "Database error"}), 500  # Changed error handling
 
     return jsonify({
+        "isSuccess": True,  # ✅ Added
         "message": "Barcode generated and product stored successfully",
         "gtin": gtin,
         "barcode_image_path": barcode_url
     }), 201
+
+
 
 @app.route('/scan_barcode', methods=['POST'])
 def scan_barcode():
@@ -157,7 +160,7 @@ def scan_barcode():
     gtin = data.get("gtin")
 
     if not gtin:
-        return jsonify({"error": "GTIN is required"}), 400
+        return jsonify({"isSuccess": False, "message": "GTIN is required"}), 400  # Changed error handling
 
     try:
         conn = get_db_connection()
@@ -168,9 +171,10 @@ def scan_barcode():
         release_db_connection(conn)
 
         if not product:
-            return jsonify({"error": "Product not found"}), 404
+            return jsonify({"isSuccess": False, "message": "Product not found"}), 404  # Changed error handling
 
         return jsonify({
+            "isSuccess": True,  # ✅ Added
             "message": "Product found successfully",
             "name": product[0],
             "price": product[1],
@@ -179,7 +183,8 @@ def scan_barcode():
 
     except Exception as e:
         print(f"Database Error: {e}")
-        return jsonify({"error": "Database error"}), 500
+        return jsonify({"isSuccess": False, "message": "Database error"}), 500  # Changed error handling
+
 
 
 if __name__ == '__main__':
