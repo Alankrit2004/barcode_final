@@ -327,7 +327,7 @@ def generate_barcode():
         return jsonify({"isSuccess": False, "message": "GTIN required"}), 400
 
     if check_if_barcode_exists(gtin):
-        return jsonify({"isSuccess": False, "message": "Barcode already exists in the database"}), 400
+        return jsonify({"isSuccess": False, "message": "Barcode already exists"}), 400
 
     barcode_path = generate_gs1_barcode(gtin)
     if not barcode_path:
