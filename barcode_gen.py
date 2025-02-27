@@ -8,6 +8,7 @@ from flask import Flask, request, jsonify
 from supabase import create_client
 from dotenv import load_dotenv
 import qrcode
+import qrcode
 
 load_dotenv()  # Load environment variables from .env file
 
@@ -29,6 +30,7 @@ db_pool = pool.SimpleConnectionPool(1, 10, **DB_CONFIG)
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 SUPABASE_BUCKET = os.getenv("SUPABASE_BUCKET")
+QR_SUPABASE_BUCKET = os.getenv("QR_CODE_BUCKET")
 QR_SUPABASE_BUCKET = os.getenv("QR_CODE_BUCKET")
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
